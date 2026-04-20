@@ -328,7 +328,7 @@ int recorder_run(char *const argv[], const recorder_options_t *options) {
         event.record.signal.header = event.header;
         event.record.signal.signal_no = sig;
         emit_event(&writer, &flight, &event, options->flight_mode);
-        ptrace(PTRACE_SYSCALL, event_pid, NULL, NULL);
+        ptrace(PTRACE_SYSCALL, event_pid, NULL, (void*)(uintptr_t)((sig == SIGSTOP || sig == SIGTRAP || sig == SIGCHLD) ? 0 : sig));
     }
 
     if (options->flight_mode) {
@@ -339,6 +339,7 @@ int recorder_run(char *const argv[], const recorder_options_t *options) {
     trace_writer_close(&writer);
     return 0;
 }
+
 
 
 #else

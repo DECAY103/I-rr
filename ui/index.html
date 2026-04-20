@@ -3,73 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EchoRun Execution Dashboard</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <title>EchoRun Debugger</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="./styles.css">
   <script>
     window.tailwind = {
       config: {
         theme: {
           extend: {
             colors: {
-              shell: "#E2E8E4",
-              ink: "#1A1A1A",
-              mint: "#B2F2BB",
-              lavender: "#BDB2FF"
-            },
-            fontFamily: {
-              display: ['"Space Grotesk"', "sans-serif"]
-            },
-            boxShadow: {
-              float: "0 24px 60px rgba(26, 26, 26, 0.08)"
-            },
-            keyframes: {
-              "fade-up": {
-                "0%": {
-                  opacity: "0",
-                  transform: "translateY(24px)"
-                },
-                "100%": {
-                  opacity: "1",
-                  transform: "translateY(0)"
-                }
-              },
-              "bar-grow": {
-                "0%": {
-                  opacity: "0",
-                  transform: "scaleY(0.35)"
-                },
-                "100%": {
-                  opacity: "1",
-                  transform: "scaleY(1)"
-                }
-              },
-              float: {
-                "0%, 100%": {
-                  transform: "translate3d(0, 0, 0)"
-                },
-                "50%": {
-                  transform: "translate3d(0, -18px, 0)"
-                }
-              }
-            },
-            animation: {
-              "fade-up": "fade-up 700ms ease-out both",
-              "bar-grow": "bar-grow 900ms cubic-bezier(0.22, 1, 0.36, 1) both",
-              "float-slow": "float 10s ease-in-out infinite"
+              slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1', 400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155', 800: '#1e293b', 900: '#0f172a' },
+              emerald: { 500: '#10b981' },
+              amber: { 500: '#f59e0b' },
+              red: { 500: '#ef4444' }
             }
           }
         }
       }
     };
   </script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="./styles.css">
 </head>
-<body class="bg-shell font-display text-ink">
-  <div id="root"></div>
-
+<body class="bg-slate-50 font-mono text-slate-800 h-screen overflow-hidden">
+  <div id="root" class="h-full"></div>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>

@@ -1,425 +1,319 @@
+// =======================
+// SVG Icons (Flat Design)
+// =======================
+const IconDatabase = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5V19A9 3 0 0 0 21 19V5"></path><path d="M3 12A9 3 0 0 0 21 12"></path></svg>;
+const IconFile = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>;
+const IconTerminal = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>;
+const IconPlay = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>;
+const IconCode = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>;
+const IconActivity = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>;
+const IconCopy = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>;
+
+// =======================
+// Config
+// =======================
 const TESTS = [
-  {
-    id: "hello",
-    title: "Hello World",
-    label: "Test 1",
-    target: "./bin/hello_world",
-    intent: "Smoke test for recording and replaying write(2) output.",
-    trace: "traces/hello.echotrace",
-    commands: [
-      "./bin/echorun-record -o traces/hello.echotrace -- ./bin/hello_world",
-      "./bin/echorun-replay -i traces/hello.echotrace -- ./bin/hello_world",
-      "./bin/echorun-visualise traces/hello.echotrace --svg out/hello.svg --summary out/hello.json"
-    ],
-    logs: [
-      { label: "record", path: "../out/hello.record.txt" },
-      { label: "replay", path: "../out/hello.replay.txt" }
-    ],
-    summaryPath: "../out/hello.json",
-    svgPath: "../out/hello.svg"
-  },
-  {
-    id: "getrandom",
-    title: "getrandom capture",
-    label: "Test 2",
-    target: "./bin/getrandom_demo",
-    intent: "Confirms non-deterministic getrandom(2) bytes are captured and replayed.",
-    trace: "traces/getrandom.echotrace",
-    commands: [
-      "./bin/echorun-record -o traces/getrandom.echotrace -- ./bin/getrandom_demo",
-      "./bin/echorun-replay -i traces/getrandom.echotrace -- ./bin/getrandom_demo",
-      "cmp out/getrandom.record.txt out/getrandom.replay.txt"
-    ],
-    logs: [
-      { label: "record", path: "../out/getrandom.record.txt" },
-      { label: "replay", path: "../out/getrandom.replay.txt" }
-    ],
-    summaryPath: "../out/getrandom.json",
-    svgPath: "../out/getrandom.svg"
-  },
-  {
-    id: "file",
-    title: "Divergence detection",
-    label: "Test 3",
-    target: "./bin/file_reader out/sample.txt",
-    intent: "Records one file state, mutates the file, then verifies replay reports divergence.",
-    trace: "traces/file.echotrace",
-    commands: [
-      "printf \"alpha\\n\" > out/sample.txt",
-      "./bin/echorun-record -o traces/file.echotrace -- ./bin/file_reader out/sample.txt",
-      "printf \"beta\\n\" > out/sample.txt",
-      "./bin/echorun-replay -i traces/file.echotrace -- ./bin/file_reader out/sample.txt"
-    ],
-    logs: [
-      { label: "record", path: "../out/file.record.txt" },
-      { label: "replay", path: "../out/file.replay.txt" }
-    ],
-    summaryPath: "../out/file.json",
-    svgPath: "../out/file.svg",
-    expectsDivergence: true
-  },
-  {
-    id: "counter",
-    title: "Time-travel goto",
-    label: "Test 4",
-    target: "./bin/counter_loop",
-    intent: "Exercises checkpoint creation and the replay REPL commands: step, goto, continue.",
-    trace: "traces/counter.echotrace",
-    commands: [
-      "./bin/echorun-record -o traces/counter.echotrace -- ./bin/counter_loop",
-      "./bin/echorun-visualise traces/counter.echotrace --svg out/counter.svg --summary out/counter.json",
-      "printf \"step\\ngoto 8\\ncontinue\\nquit\\n\" | ./bin/echorun-replay -i traces/counter.echotrace --repl -- ./bin/counter_loop"
-    ],
-    logs: [
-      { label: "record", path: "../out/counter.record.txt" },
-      { label: "repl", path: "../out/counter.repl.txt" }
-    ],
-    summaryPath: "../out/counter.json",
-    svgPath: "../out/counter.svg"
-  }
+  { id: "hello", title: "Hello World", target: "./bin/hello_world", summaryPath: "../out/hello.json", logs: [{ label: "record", path: "../out/hello.record.txt" }, { label: "replay", path: "../out/hello.replay.txt" }] },
+  { id: "getrandom", title: "getrandom capture", target: "./bin/getrandom_demo", summaryPath: "../out/getrandom.json", logs: [{ label: "record", path: "../out/getrandom.record.txt" }, { label: "replay", path: "../out/getrandom.replay.txt" }] },
+  { id: "file", title: "Divergence detection", target: "./bin/file_reader out/sample.txt", summaryPath: "../out/file.json", expectsDivergence: true, logs: [{ label: "record", path: "../out/file.record.txt" }, { label: "replay", path: "../out/file.replay.txt" }] },
+  { id: "counter", title: "Time-travel goto", target: "./bin/counter_loop", summaryPath: "../out/counter.json", logs: [{ label: "record", path: "../out/counter.record.txt" }, { label: "repl", path: "../out/counter.repl.txt" }] },
+  { id: "audit", title: "Audit Vault Multi-Process", target: "./bin/audit_vault", summaryPath: "../out/audit.json", logs: [{ label: "record", path: "../out/audit.record.txt" }, { label: "replay", path: "../out/audit.replay.txt" }] }
 ];
 
-const EVENT_TYPES = {
-  1: "syscall",
-  2: "signal",
-  3: "process"
-};
+const SYSCALL_NAMES = { 0: "read", 1: "write", 3: "close", 5: "fstat", 9: "mmap", 10: "mprotect", 11: "munmap", 12: "brk", 17: "pread64", 21: "access", 56: "clone", 59: "execve", 61: "wait4", 158: "arch_prctl", 218: "set_tid_address", 219: "restart_syscall", 230: "nanosleep", 257: "openat", 273: "set_robust_list", 293: "pipe2", 302: "prlimit64", 318: "getrandom", 334: "rseq" };
 
-const SYSCALL_NAMES = {
-  0: "read",
-  1: "write",
-  3: "close",
-  5: "fstat",
-  9: "mmap",
-  10: "mprotect",
-  11: "munmap",
-  12: "brk",
-  17: "pread64",
-  21: "access",
-  59: "execve",
-  158: "arch_prctl",
-  218: "set_tid_address",
-  257: "openat",
-  273: "set_robust_list",
-  302: "prlimit64",
-  318: "getrandom",
-  334: "rseq"
-};
-
-function classNames(...parts) {
-  return parts.filter(Boolean).join(" ");
+// Colors logic based on prompt
+function getEventColor(event) {
+  if (event.syscall === 318) return "bg-emerald-500 border-emerald-600"; // non-det
+  if (event.syscall === 1 || event.syscall === 0) return "bg-amber-500 border-amber-600"; // side-effect
+  if (event.type === 2) return "bg-red-500 border-red-600"; // signal
+  if (event.type === 3) return "bg-slate-700 border-slate-800"; // process event
+  return "bg-slate-400 border-slate-500"; // default det
 }
 
-async function fetchText(path) {
-  try {
-    const response = await fetch(path, { cache: "no-store" });
-    if (!response.ok) {
-      return "";
+function getEventColorCoreHex(event) {
+    if (event.syscall === 318) return "#10b981"; // emerald
+    if (event.syscall === 1 || event.syscall === 0) return "#f59e0b"; // amber
+    if (event.type === 2) return "#ef4444"; // red
+    if (event.type === 3) return "#334155"; // slate-700
+    return "#94a3b8"; // slate-400
+}
+
+function extractDivergenceMessage(logs) {
+    for (const log of logs) {
+        if (!log.text) continue;
+        const match = log.text.match(/(divergence at seq \d+: .*)/i);
+        if (match) return match[1];
     }
-    return await response.text();
-  } catch (error) {
-    return "";
-  }
+    return "divergence observed";
 }
 
-async function fetchJson(path) {
-  const text = await fetchText(path);
-  if (!text) {
-    return null;
-  }
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    return null;
-  }
-}
-
+// =======================
+// Data Loading Hook
+// =======================
 function useArtifacts() {
   const [state, setState] = React.useState({ loading: true, tests: [] });
-
   React.useEffect(() => {
     let cancelled = false;
-
     async function load() {
-      const tests = await Promise.all(
-        TESTS.map(async (test) => {
-          const [summary, ...logs] = await Promise.all([
-            fetchJson(test.summaryPath),
-            ...test.logs.map((log) => fetchText(log.path))
-          ]);
-
-          return {
-            ...test,
-            summary,
-            logs: test.logs.map((log, index) => ({ ...log, text: logs[index] }))
-          };
-        })
-      );
-
-      if (!cancelled) {
-        setState({ loading: false, tests });
-      }
+      const db = await Promise.all(TESTS.map(async (test) => {
+        let summary = null;
+        try { const r = await fetch(test.summaryPath, { cache: "no-store" }); if(r.ok) summary = await r.json(); } catch(e){}
+        const logs = await Promise.all(test.logs.map(async (log) => {
+            let text = "";
+            try { const r = await fetch(log.path, { cache: "no-store"}); if(r.ok) text = await r.text(); } catch(e){}
+            return { ...log, text };
+        }));
+        return { ...test, summary, logs };
+      }));
+      if (!cancelled) setState({ loading: false, tests: db });
     }
-
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
-
   return state;
 }
 
-function statusFor(test) {
-  const replayLog = test.logs.find((log) => log.label === "replay" || log.label === "repl")?.text || "";
-  const recordLog = test.logs.find((log) => log.label === "record")?.text || "";
-
-  if (!test.summary) {
-    return { label: "Waiting for artifacts", tone: "bg-white/70 text-ink/60" };
-  }
-  if (test.expectsDivergence) {
-    return replayLog.includes("divergence")
-      ? { label: "Divergence detected", tone: "bg-lavender text-ink" }
-      : { label: "Needs rerun", tone: "bg-red-100 text-red-800" };
-  }
-  if (test.id === "getrandom" && recordLog && recordLog === replayLog) {
-    return { label: "Replay matched", tone: "bg-mint text-ink" };
-  }
-  if (recordLog) {
-    return { label: "Artifacts ready", tone: "bg-mint text-ink" };
-  }
-  return { label: "Summary ready", tone: "bg-mint text-ink" };
-}
-
-function SectionLabel({ children, className = "" }) {
-  return (
-    <p className={classNames("text-xs font-bold uppercase tracking-[0.28em]", className)}>
-      {children}
-    </p>
-  );
-}
-
-function ShellCard({ children, className = "", style }) {
-  return (
-    <section className={classNames("rounded-[2rem] border border-white/60 bg-white/95 p-5 shadow-float sm:p-6", className)} style={style}>
-      {children}
-    </section>
-  );
-}
-
-function CommandList() {
-  return (
-    <ShellCard className="bg-ink text-white">
-      <SectionLabel className="text-mint/70">How to Run</SectionLabel>
-      <h2 className="mt-3 text-3xl font-bold tracking-[-0.05em]">Terminal first, UI second.</h2>
-      <div className="mt-5 grid gap-3 text-sm text-white/75">
-        {[
-          "make",
-          "make test",
-          "python3 -m http.server 8000",
-          "Open http://localhost:8000/ui/"
-        ].map((command, index) => (
-          <div key={command} className="flex gap-3 rounded-2xl bg-white/10 p-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-mint text-xs font-bold text-ink">
-              {index + 1}
-            </span>
-            <code className="pt-1 font-mono text-[0.8rem] leading-5 text-white">{command}</code>
-          </div>
-        ))}
-      </div>
-      <p className="mt-5 text-sm leading-6 text-white/55">
-        Serve from the project root, not from inside <code className="font-mono">ui/</code>, so the browser can fetch <code className="font-mono">out/*.json</code>, <code className="font-mono">out/*.svg</code>, and terminal log files.
-      </p>
-    </ShellCard>
-  );
-}
-
-function Metric({ label, value }) {
-  return (
-    <div className="rounded-2xl bg-shell/75 px-4 py-3">
-      <p className="text-xs uppercase tracking-[0.18em] text-ink/40">{label}</p>
-      <p className="mt-2 text-2xl font-bold tracking-[-0.05em]">{value}</p>
-    </div>
-  );
-}
-
-function eventColor(event) {
-  if (event.type === 2) {
-    return "#ef4444";
-  }
-  if (event.type === 3) {
-    return "#0f766e";
-  }
-  if (event.payload > 0) {
-    return "#B2F2BB";
-  }
-  return "#1A1A1A";
-}
-
-function Timeline({ events = [] }) {
-  const visible = events.slice(0, 90);
-
-  if (events.length === 0) {
-    return (
-      <div className="rounded-[1.5rem] border border-dashed border-ink/20 bg-shell/60 p-5 text-sm text-ink/50">
-        No timeline yet. Run <code className="font-mono">make test</code> to create visualizer output.
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-[1.5rem] bg-ink p-4">
-      <div className="flex h-28 items-center gap-1 overflow-hidden">
-        {visible.map((event) => (
-          <div
-            key={event.seq}
-            title={`seq ${event.seq}: ${EVENT_TYPES[event.type] || "event"} ${SYSCALL_NAMES[event.syscall] || event.syscall}`}
-            className="min-w-[5px] flex-1 rounded-full"
-            style={{
-              height: `${Math.max(18, Math.min(92, event.payload ? 38 + event.payload / 10 : 28))}%`,
-              background: eventColor(event)
-            }}
-          />
-        ))}
-      </div>
-      <div className="mt-4 flex flex-wrap gap-3 text-xs text-white/55">
-        <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-mint"></span>payload</span>
-        <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-white"></span>syscall</span>
-        <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-red-500"></span>signal</span>
-        <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-teal-700"></span>process</span>
-      </div>
-    </div>
-  );
-}
-
-function TerminalBlock({ logs }) {
-  const hasText = logs.some((log) => (log.text || "").trim());
-
-  if (!hasText) {
-    return (
-      <pre className="min-h-[9rem] overflow-auto rounded-[1.5rem] bg-ink p-4 font-mono text-xs leading-6 text-white/45">
-Run make test to populate out/*.txt terminal logs.
-      </pre>
-    );
-  }
-
-  return (
-    <div className="grid gap-3">
-      {logs.map((log) => (
-        <div key={log.label} className="overflow-hidden rounded-[1.5rem] bg-ink">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-2">
-            <span className="text-xs uppercase tracking-[0.2em] text-white/45">{log.label}</span>
-            <span className="text-xs text-white/35">{log.path.replace("../", "")}</span>
-          </div>
-          <pre className="max-h-48 overflow-auto p-4 font-mono text-xs leading-6 text-mint">
-{log.text || "(no output)"}
-          </pre>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TestCard({ test, index }) {
-  const status = statusFor(test);
-  const summary = test.summary;
-  const events = summary?.events || [];
-  const payloadEvents = events.filter((event) => event.payload > 0).length;
-  const topSyscalls = events
-    .filter((event) => event.syscall >= 0)
-    .slice(-6)
-    .map((event) => SYSCALL_NAMES[event.syscall] || `sys_${event.syscall}`)
-    .join(" -> ");
-
-  return (
-    <ShellCard className="animate-fade-up" style={{ animationDelay: `${index * 80}ms` }}>
-      <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
-        <div className="xl:w-[28rem]">
-          <div className="flex flex-wrap items-center gap-3">
-            <SectionLabel className="text-ink/35">{test.label}</SectionLabel>
-            <span className={classNames("rounded-full px-3 py-1 text-xs font-bold", status.tone)}>
-              {status.label}
-            </span>
-          </div>
-          <h3 className="mt-3 text-3xl font-bold tracking-[-0.05em]">{test.title}</h3>
-          <p className="mt-3 text-sm leading-6 text-ink/55">{test.intent}</p>
-          <p className="mt-4 rounded-2xl bg-shell/80 px-4 py-3 font-mono text-xs text-ink/70">{test.target}</p>
-
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <Metric label="events" value={summary?.totalEvents ?? "-"} />
-            <Metric label="payloads" value={payloadEvents || "-"} />
-            <Metric label="signals" value={summary?.signalEvents ?? "-"} />
-          </div>
-        </div>
-
-        <div className="grid flex-1 gap-4">
-          <Timeline events={events} />
-          {summary ? (
-            <img
-              src={test.svgPath}
-              alt={`${test.title} SVG timeline`}
-              className="w-full rounded-[1.5rem] border border-ink/10 bg-white"
-              onError={(event) => {
-                event.currentTarget.style.display = "none";
-              }}
-            />
-          ) : null}
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-            <div className="rounded-[1.5rem] bg-shell/70 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-ink/35">Commands</p>
-              <div className="mt-3 grid gap-2">
-                {test.commands.map((command) => (
-                  <code key={command} className="block rounded-xl bg-white/75 px-3 py-2 font-mono text-xs leading-5 text-ink/70">
-                    {command}
-                  </code>
-                ))}
-              </div>
-              <p className="mt-4 text-xs leading-5 text-ink/45">
-                Recent syscall tail: {topSyscalls || "not available"}
-              </p>
-            </div>
-            <TerminalBlock logs={test.logs} />
-          </div>
-        </div>
-      </div>
-    </ShellCard>
-  );
-}
-
+// =======================
+// Components
+// =======================
 function App() {
   const { loading, tests } = useArtifacts();
-  const readyCount = tests.filter((test) => test.summary).length;
-  const totalEvents = tests.reduce((sum, test) => sum + (test.summary?.totalEvents || 0), 0);
-  const divergenceSeen = tests.some((test) => test.logs.some((log) => log.text.includes("divergence")));
+  const [activeTestId, setActiveTestId] = React.useState("hello");
+  const [selectedSeq, setSelectedSeq] = React.useState(null);
+  const [activeTab, setActiveTab] = React.useState("record");
+
+  const rowRefs = React.useRef({});
+
+  if (loading) {
+      return <div className="flex h-screen items-center justify-center font-bold text-slate-500 uppercase tracking-widest text-sm">LOADING ARTIFACTS...</div>;
+  }
+
+  const activeTest = tests.find(t => t.id === activeTestId);
+  const events = activeTest?.summary?.events || [];
+  const selectedEvent = events.find(e => e.seq === selectedSeq);
+
+  const scrollToSeq = (seq) => {
+      setSelectedSeq(seq);
+      if (rowRefs.current[seq]) {
+          rowRefs.current[seq].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+  };
+
+  // Divergence logic
+  let divergenceSeq = -1;
+  let divergenceMsg = "";
+  if (activeTest.summary && activeTest.summary.divergence && activeTest.summary.divergence.seq !== undefined && activeTest.summary.divergence.reason !== "") {
+    divergenceSeq = activeTest.summary.divergence.seq;
+  }
+  const replayLogText = activeTest.logs.find(l => l.label === "replay" || l.label === "repl")?.text || "";
+  if (replayLogText.includes("divergence")) {
+     const match = replayLogText.match(/divergence at seq (\d+)/);
+     if (match) divergenceSeq = parseInt(match[1]);
+     divergenceMsg = extractDivergenceMessage(activeTest.logs);
+  }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="flex h-screen w-full bg-slate-50 overflow-hidden text-sm">
+      {/* Sidebar */}
+      <aside className="w-64 border-r border-slate-300 bg-white flex flex-col shrink-0 z-20 shadow-[1px_0_10px_rgba(0,0,0,0.02)]">
+        <div className="p-5 border-b border-slate-300 font-bold flex items-center gap-3 text-slate-800 tracking-tight text-lg">
+           <IconDatabase className="w-5 h-5 text-blue-600" /> EchoRun
+        </div>
+        <div className="flex-1 overflow-y-auto">
+            <div className="p-3 text-[10px] uppercase font-bold text-slate-400 tracking-widest">Test Targets</div>
+            {tests.map(test => {
+                const isActive = test.id === activeTestId;
+                const hasSummary = !!test.summary;
+                return (
+                    <button 
+                        key={test.id}
+                        onClick={() => { setActiveTestId(test.id); setSelectedSeq(null); setActiveTab(test.logs[0].label); }}
+                        className={`w-full text-left px-5 py-4 border-b border-slate-100 flex flex-col gap-1 transition-colors ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-slate-50 text-slate-700'}`}
+                    >
+                        <div className="font-bold truncate">{test.title}</div>
+                        <div className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? 'text-blue-200' : 'text-slate-400'}`}>
+                           {hasSummary ? `${test.summary.totalEvents} events` : <span className="text-red-400">MISSING ARTIFACT</span>}
+                        </div>
+                    </button>
+                );
+            })}
+        </div>
+      </aside>
 
-
-      <main className="relative mx-auto flex min-h-screen max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8">
-        <header className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem]">
-          <ShellCard className="animate-fade-up bg-white/70">
-            <SectionLabel className="text-ink/35">EchoRun Output Viewer</SectionLabel>
-            <h1 className="mt-4 max-w-4xl text-4xl font-bold leading-none tracking-[-0.07em] sm:text-6xl">
-              C execution traces, terminal logs, and visualizer summaries in one place.
-            </h1>
-            <p className="mt-5 max-w-2xl text-sm leading-6 text-ink/55">
-              Run the validation suite first. The C tools write traces into <code className="font-mono">traces/</code> and dashboard artifacts into <code className="font-mono">out/</code>; this UI reads those files directly.
-            </p>
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <Metric label="ready tests" value={loading ? "..." : `${readyCount}/4`} />
-              <Metric label="trace events" value={loading ? "..." : totalEvents} />
-              <Metric label="divergence" value={divergenceSeen ? "seen" : "none"} />
+      {/* Main Workspace */}
+      <main className="flex-1 flex flex-col min-w-0 bg-white">
+        {!activeTest.summary ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-500 bg-slate-50">
+                <IconActivity className="w-12 h-12 mb-4 opacity-30 text-slate-400" />
+                <h2 className="text-xl font-bold pb-2 mb-2">Artifact Missing</h2>
+                <p>Run <code className="bg-slate-200 px-1.5 py-0.5 rounded text-slate-800 border border-slate-300 shadow-sm mx-1">make test</code> to generate traces</p>
             </div>
-          </ShellCard>
-          <CommandList />
-        </header>
+        ) : (
+            <>
+                {/* Header Strip */}
+                <div className="bg-white border-b border-slate-300 px-6 py-4 shrink-0 flex items-center justify-between">
+                    <div>
+                        <h1 className="font-bold text-xl text-slate-800">{activeTest.title}</h1>
+                        <div className="text-slate-400 font-mono text-xs mt-1">{activeTest.target}</div>
+                    </div>
+                </div>
 
-        <section className="grid gap-5">
-          {(tests.length ? tests : TESTS).map((test, index) => (
-            <TestCard key={test.id} test={test} index={index} />
-          ))}
-        </section>
+                {/* Execution Strip (Timeline) */}
+                <div className="bg-slate-50 border-b border-slate-300 p-4 shrink-0 shadow-inner">
+                    <div className="text-[10px] font-bold text-slate-500 mb-3 uppercase tracking-widest flex items-center justify-between">
+                        <span>Timeline Execution Strip</span>
+                        <div className="flex gap-4">
+                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-slate-400 block"></span> Deterministic</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-emerald-500 block"></span> Non-Deterministic</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-amber-500 block"></span> Side-Effect</span>
+                        </div>
+                    </div>
+                    <div className="flex gap-[2px] overflow-x-auto pb-2 custom-scrollbar">
+                        {events.map((event) => {
+                            const isSelected = selectedSeq === event.seq;
+                            return (
+                                <button 
+                                    key={event.seq} 
+                                    onClick={() => scrollToSeq(event.seq)}
+                                    title={`Seq ${event.seq}: ${SYSCALL_NAMES[event.syscall] || 'Event'}`}
+                                    className={`h-8 min-w-[12px] flex-1 border ${getEventColor(event)} ${isSelected ? 'ring-2 ring-blue-600 ring-offset-[3px] ring-offset-slate-50 z-10' : 'opacity-80 hover:opacity-100 hover:scale-110 transition-transform'}`}
+                                ></button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Work Area Split */}
+                <div className="flex-1 flex overflow-hidden">
+                    {/* Divergence Diff Table */}
+                    <div className="flex-1 flex flex-col bg-white overflow-hidden relative mr-[-1px]">
+                         <div className="grid grid-cols-2 bg-slate-800 text-slate-300 text-[10px] uppercase tracking-widest font-bold shrink-0">
+                             <div className="p-2 px-4 border-r border-slate-600 flex items-center gap-2"><IconFile className="w-3 h-3 text-emerald-400" /> Record Path (JSON)</div>
+                             <div className="p-2 px-4 flex items-center gap-2"><IconPlay className="w-3 h-3 text-blue-400" /> Replay Path (Live)</div>
+                         </div>
+                         <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-[1px] bg-slate-50">
+                             {events.map(event => {
+                                 const isSelected = selectedSeq === event.seq;
+                                 const isDivergence = divergenceSeq === event.seq;
+                                 const isPostDivergence = divergenceSeq !== -1 && event.seq > divergenceSeq;
+                                 const eventName = event.type === 2 ? "SIGNAL" : event.type === 3 ? "PROCESS" : (SYSCALL_NAMES[event.syscall] || `syscall(${event.syscall})`);
+                                 
+                                 return (
+                                     <div key={event.seq} 
+                                          ref={el => rowRefs.current[event.seq] = el}
+                                          className={`grid grid-cols-[1fr_1px_1fr] text-xs cursor-pointer ${isSelected ? 'bg-blue-100 border border-blue-300 shadow-sm z-10 relative' : 'hover:bg-slate-100 border border-transparent bg-white'} ${isDivergence && !isSelected ? 'border-red-500 bg-red-50 z-10 relative' : ''}`}
+                                          onClick={() => setSelectedSeq(event.seq)}>
+                                         <div className="p-2 flex gap-3 items-center">
+                                            <span className="text-slate-400 font-mono w-8 text-right block">#{event.seq}</span>
+                                            <span className="font-bold w-24" style={{color: getEventColorCoreHex(event)}}>{eventName}</span>
+                                            {event.payload > 0 && <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-100 px-1.5 rounded border border-slate-200">pay: {event.payload}</span>}
+                                         </div>
+                                         <div className="bg-slate-200"></div>
+                                         <div className={`p-2 flex gap-3 items-center ${isDivergence ? 'bg-red-500 text-white font-bold' : isPostDivergence ? 'text-slate-300 bg-slate-100/50' : ''}`}>
+                                            {isDivergence ? (
+                                                <span className="px-2">{divergenceMsg || 'EXPECTATION MISMATCH CAUGHT'}</span>
+                                            ) : isPostDivergence ? (
+                                                <span className="px-2 italic">(Execution Aborted)</span>
+                                            ) : (
+                                                <>
+                                                    <span className={isDivergence ? 'text-red-200 font-mono w-8 text-right block' : 'text-slate-400 font-mono w-8 text-right block'}>#{event.seq}</span>
+                                                    <span className={`font-bold w-24 ${isDivergence ? 'text-white' : ''}`} style={(!isDivergence) ? {color: getEventColorCoreHex(event)} : {}}>{eventName}</span>
+                                                    {event.payload > 0 && <span className={`text-[10px] uppercase font-bold border rounded px-1.5 ${isDivergence ? 'bg-red-600 text-red-200 border-red-400' : 'text-slate-500 bg-slate-100 border-slate-200'}`}>pay: {event.payload}</span>}
+                                                </>
+                                            )}
+                                         </div>
+                                     </div>
+                                 );
+                             })}
+                         </div>
+                    </div>
+
+                    {/* Right Panel Layout */}
+                    <div className="w-[360px] flex flex-col bg-white border-l border-slate-300 shrink-0 shadow-[-5px_0_15px_rgba(0,0,0,0.02)] z-10">
+                        {/* Payload Inspector */}
+                        <div className="flex-1 flex flex-col overflow-hidden">
+                            <div className="bg-slate-100 p-2 text-[10px] font-bold uppercase text-slate-500 tracking-widest border-b border-slate-300 shrink-0 flex items-center justify-center gap-2">
+                                <IconCode className="w-3.5 h-3.5 text-slate-400" /> Payload & Arg Inspector
+                            </div>
+                            <div className="p-5 overflow-y-auto custom-scrollbar flex-1 bg-white">
+                                {selectedEvent ? (
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest border-b border-slate-100 pb-1 mb-2">Sequence ID</div>
+                                                <div className="font-mono text-2xl text-slate-800">{selectedEvent.seq}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest border-b border-slate-100 pb-1 mb-2">Syscall ID</div>
+                                                <div className="font-mono text-2xl text-slate-800 bg-slate-50 inline-block px-2">{selectedEvent.syscall}</div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest border-b border-slate-100 pb-1 mb-2">Execution Target</div>
+                                            <div className="font-mono border border-slate-300 bg-slate-50 px-3 py-1.5 inline-block text-slate-700 font-bold">
+                                                {selectedEvent.type === 2 ? 'OS_SIGNAL' : selectedEvent.type === 3 ? 'OS_PROCESS' : (SYSCALL_NAMES[selectedEvent.syscall] || `syscall_${selectedEvent.syscall}`)}()
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest border-b border-slate-100 pb-1 mb-2">Intercepted Buffer</div>
+                                            {selectedEvent.payload > 0 ? (
+                                                <div className="border border-slate-300 bg-slate-800 text-slate-100 p-3 font-mono text-xs relative group shadow-sm flex items-center justify-between">
+                                                    <span>{selectedEvent.payload} bytes of static memory</span>
+                                                    <button className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 transition-colors border border-slate-600" title="Copy Data">
+                                                        <IconCopy className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="text-slate-400 italic text-xs">No active payloads bound to arguments.</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3 opacity-60">
+                                        <IconDatabase className="w-8 h-8" />
+                                        <div className="italic text-xs font-mono">Select timeline block...</div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Terminal Logs */}
+                        <div className="h-64 flex flex-col bg-slate-900 shrink-0">
+                            <div className="flex bg-[#0f172a] text-[10px] tracking-widest shrink-0">
+                                {activeTest.logs.map(log => (
+                                    <button 
+                                        key={log.label}
+                                        onClick={() => setActiveTab(log.label)}
+                                        className={`px-4 py-2 uppercase font-bold flex items-center justify-center gap-2 flex-1 border-t-2 ${activeTab === log.label ? 'bg-slate-900 text-white border-blue-500' : 'text-slate-500 border-transparent hover:text-slate-300 hover:bg-slate-800'}`}
+                                    >
+                                        <IconTerminal className="w-3 h-3" /> {log.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4 term-scroll">
+                                {activeTest.logs.map(log => {
+                                    if (log.label !== activeTab) return null;
+                                    if (!log.text) return <div key={log.label} className="text-slate-600 font-mono text-xs italic">Waiting for execution...</div>;
+                                    
+                                    const lines = log.text.split('\n');
+                                    return (
+                                        <pre key={log.label} className="font-mono text-xs leading-5 text-slate-300 m-0 p-0 break-all whitespace-pre-wrap">
+                                            {lines.map((line, i) => {
+                                                if (line.toLowerCase().includes('divergence') || line.toLowerCase().includes('error')) {
+                                                    return <div key={i} className="text-red-400 font-bold bg-red-950/30 px-1 border-l-2 border-red-500 -ml-1 inline-block">{line}</div>;
+                                                }
+                                                return <div key={i}>{line}</div>;
+                                            })}
+                                        </pre>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </>
+        )}
       </main>
     </div>
   );

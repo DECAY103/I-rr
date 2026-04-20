@@ -9,7 +9,8 @@ REPLAYER_SRCS = $(COMMON_SRCS) src/replayer.c src/main_replay.c
 VISUALISER_SRCS = $(COMMON_SRCS) src/visualiser.c src/main_visualise.c
 
 TARGETS = bin/echorun-record bin/echorun-replay bin/echorun-visualise \
-	bin/hello_world bin/getrandom_demo bin/file_reader bin/counter_loop
+	bin/hello_world bin/getrandom_demo bin/file_reader bin/counter_loop \
+	bin/audit_vault
 
 .PHONY: all clean test ui
 
@@ -37,6 +38,9 @@ bin/file_reader: tests/targets/file_reader.c | bin
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 bin/counter_loop: tests/targets/counter_loop.c | bin
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $<
+
+bin/audit_vault: tests/targets/audit_vault.c | bin
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 test: all

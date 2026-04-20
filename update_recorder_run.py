@@ -165,7 +165,7 @@ run_new = """int recorder_run(char *const argv[], const recorder_options_t *opti
         event.record.signal.header = event.header;
         event.record.signal.signal_no = sig;
         emit_event(&writer, &flight, &event, options->flight_mode);
-        ptrace(PTRACE_SYSCALL, event_pid, NULL, (void*)(uintptr_t)((sig == SIGSTOP) ? 0 : sig));
+        ptrace(PTRACE_SYSCALL, event_pid, NULL, (void*)(uintptr_t)((sig == SIGSTOP || sig == SIGTRAP || sig == SIGCHLD) ? 0 : sig));
     }
 
     if (options->flight_mode) {

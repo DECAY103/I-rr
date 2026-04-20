@@ -30,10 +30,18 @@ typedef struct syscall_entry {
     uint64_t args[6];
 } syscall_entry_t;
 
+typedef struct event_queue_node {
+    trace_event_t event;
+    struct event_queue_node *next;
+} event_queue_node_t;
+
 typedef struct tracee_state {
     pid_t pid;
+    uint32_t recorded_pid;
     int in_syscall;
     syscall_entry_t live_entry;
+    event_queue_node_t *event_queue_head;
+    event_queue_node_t *event_queue_tail;
 } tracee_state_t;
 
 #define MAX_TRACEES 256
@@ -44,9 +52,18 @@ static tracee_state_t *get_tracee(pid_t pid) {
     for (size_t i = 0; i < tracee_count; i++) {
         if (tracees[i].pid == pid) return &tracees[i];
     }
+    for (size_t i = 0; i < tracee_count; i++) {
+        if (tracees[i].pid == 0 && tracees[i].recorded_pid != 0) {
+            tracees[i].pid = pid;
+            return &tracees[i];
+        }
+    }
     if (tracee_count < MAX_TRACEES) {
         tracees[tracee_count].pid = pid;
+        tracees[tracee_count].recorded_pid = 0;
         tracees[tracee_count].in_syscall = 0;
+        tracees[tracee_count].event_queue_head = NULL;
+        tracees[tracee_count].event_queue_tail = NULL;
         return &tracees[tracee_count++];
     }
     return NULL;
@@ -230,6 +247,18 @@ static void replay_state_destroy(replay_state_t *state) {
     }
     free(state->checkpoints);
     free(state->known_images);
+
+    for (i = 0; i < tracee_count; ++i) {
+        event_queue_node_t *node = tracees[i].event_queue_head;
+        while (node) {
+            event_queue_node_t *next = node->next;
+            trace_event_release(&node->event);
+            free(node);
+            node = next;
+        }
+        tracees[i].event_queue_head = NULL;
+        tracees[i].event_queue_tail = NULL;
+    }
 }
 
 static int compare_live_read(pid_t pid, const syscall_entry_t *entry, const trace_event_t *event, divergence_report_t *report) {
@@ -353,17 +382,86 @@ static int inject_syscall_result(pid_t pid, struct user_regs_struct *regs, const
     return 0;
 }
 
-static int read_next_syscall_event(trace_reader_t *reader, trace_event_t *event) {
-    int rc;
+static int get_next_event_for_pid(replay_state_t *state, pid_t pid, trace_event_t *event) {
+    tracee_state_t *tstate = get_tracee(pid);
+    if (!tstate) return -1;
+    
+    if (tstate->event_queue_head != NULL) {
+        event_queue_node_t *node = tstate->event_queue_head;
+        *event = node->event;
+        tstate->event_queue_head = node->next;
+        if (tstate->event_queue_head == NULL) {
+            tstate->event_queue_tail = NULL;
+        }
+        free(node);
+        return 0;
+    }
 
-    do {
-        rc = trace_reader_next(reader, event);
+    int rc;
+    for (;;) {
+        trace_event_t temp_event;
+        trace_event_reset(&temp_event);
+        rc = trace_reader_next(&state->reader, &temp_event);
         if (rc != 0) {
             return rc;
         }
-    } while (event->header.type != TRACE_EVENT_SYSCALL_EXIT);
+        
+        if (temp_event.header.type != TRACE_EVENT_SYSCALL_EXIT) {
+            trace_event_release(&temp_event);
+            continue;
+        }
 
-    return 0;
+        uint32_t rec_pid = temp_event.header.pid;
+        tracee_state_t *owner = NULL;
+        for (size_t i = 0; i < tracee_count; i++) {
+            if (tracees[i].recorded_pid == rec_pid) {
+                owner = &tracees[i];
+                break;
+            }
+        }
+        
+        if (owner == NULL) {
+            for (size_t i = 0; i < tracee_count; i++) {
+                if (tracees[i].recorded_pid == 0) {
+                    tracees[i].recorded_pid = rec_pid;
+                    owner = &tracees[i];
+                    break;
+                }
+            }
+            if (owner == NULL) {
+                if (tracee_count < MAX_TRACEES) {
+                    owner = &tracees[tracee_count++];
+                    owner->pid = 0;
+                    owner->recorded_pid = rec_pid;
+                    owner->in_syscall = 0;
+                    owner->event_queue_head = NULL;
+                    owner->event_queue_tail = NULL;
+                } else {
+                    trace_event_release(&temp_event);
+                    return -1;
+                }
+            }
+        }
+
+        if (owner == tstate) {
+            *event = temp_event;
+            return 0;
+        } else {
+            event_queue_node_t *node = malloc(sizeof(event_queue_node_t));
+            if (!node) {
+                trace_event_release(&temp_event);
+                return -1;
+            }
+            node->event = temp_event;
+            node->next = NULL;
+            if (owner->event_queue_tail == NULL) {
+                owner->event_queue_head = node;
+            } else {
+                owner->event_queue_tail->next = node;
+            }
+            owner->event_queue_tail = node;
+        }
+    }
 }
 
 static int run_until_seq(replay_state_t *state, uint64_t *seq_idx, size_t checkpoint_every, divergence_report_t *report, uint64_t target_seq) {
@@ -429,17 +527,10 @@ static int run_until_seq(replay_state_t *state, uint64_t *seq_idx, size_t checkp
         }
 
         tstate->in_syscall = 0;
-        reader_rc = read_next_syscall_event(&state->reader, &event);
+        reader_rc = get_next_event_for_pid(state, event_pid, &event);
         if (reader_rc != 0) {
             trace_event_release(&event);
             return reader_rc == 1 ? 0 : -1;
-        }
-        
-        while (event.header.pid != event_pid) {
-            // Need to handle events from trace linearly. If the live process order diverges slightly from record, this gets hard.
-            // But since EchoRun assumes single-threaded linearity, we assume the next event is for the event_pid.
-            // However, the test should be deterministic assuming exact syscall orders or the test doesn't test PID matches exactly here.
-            break;
         }
 
         report->seq_idx = event.header.seq_idx;

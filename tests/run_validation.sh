@@ -33,4 +33,9 @@ echo "== Test 4: Time-travel goto =="
 ./bin/echorun-visualise traces/counter.echotrace --svg out/counter.svg --summary out/counter.json
 printf "step\ngoto 8\ncontinue\nquit\n" | ./bin/echorun-replay -i traces/counter.echotrace --repl -- ./bin/counter_loop 2>&1 | tee out/counter.repl.txt || true
 
+echo "== Test 5: Audit Vault Multi-Process =="
+./bin/echorun-record -o traces/audit.echotrace -- ./bin/audit_vault | tee out/audit.record.txt
+./bin/echorun-replay -i traces/audit.echotrace -- ./bin/audit_vault | tee out/audit.replay.txt
+./bin/echorun-visualise traces/audit.echotrace --svg out/audit.svg --summary out/audit.json
+
 echo "validation complete"
