@@ -30,6 +30,14 @@ syscall_kind_t syscall_table_classify(long syscall_nr) {
         case SYS_execve:
         case SYS_exit:
         case SYS_exit_group:
+        case SYS_pipe:
+        case SYS_pipe2:
+        case SYS_shmget:
+        case SYS_shmat:
+        case SYS_shmdt:
+        case SYS_fork:
+        case SYS_vfork:
+        case SYS_clone:
             return SYSCALL_KIND_SIDE_EFFECT;
 #endif
         default:

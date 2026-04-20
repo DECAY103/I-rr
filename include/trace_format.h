@@ -9,7 +9,8 @@
 enum trace_event_type {
     TRACE_EVENT_SYSCALL_EXIT = 1,
     TRACE_EVENT_SIGNAL = 2,
-    TRACE_EVENT_PROC_EVENT = 3
+    TRACE_EVENT_PROC_EVENT = 3,
+    TRACE_EVENT_IPC_DATA = 4
 };
 
 enum proc_event_kind {
@@ -44,7 +45,7 @@ typedef struct trace_event_header {
     uint16_t record_size;
     uint32_t payload_size;
     uint32_t flags;
-    uint32_t reserved;
+    uint32_t pid;
 } trace_event_header_t;
 
 typedef struct trace_syscall_exit_record {

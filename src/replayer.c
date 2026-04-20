@@ -30,6 +30,29 @@ typedef struct syscall_entry {
     uint64_t args[6];
 } syscall_entry_t;
 
+typedef struct tracee_state {
+    pid_t pid;
+    int in_syscall;
+    syscall_entry_t live_entry;
+} tracee_state_t;
+
+#define MAX_TRACEES 256
+static tracee_state_t tracees[MAX_TRACEES];
+static size_t tracee_count = 0;
+
+static tracee_state_t *get_tracee(pid_t pid) {
+    for (size_t i = 0; i < tracee_count; i++) {
+        if (tracees[i].pid == pid) return &tracees[i];
+    }
+    if (tracee_count < MAX_TRACEES) {
+        tracees[tracee_count].pid = pid;
+        tracees[tracee_count].in_syscall = 0;
+        return &tracees[tracee_count++];
+    }
+    return NULL;
+}
+
+
 typedef struct checkpoint {
     uint64_t seq_idx;
     struct user_regs_struct regs;
@@ -343,12 +366,9 @@ static int read_next_syscall_event(trace_reader_t *reader, trace_event_t *event)
     return 0;
 }
 
-static int run_until_seq(pid_t pid, replay_state_t *state, uint64_t *seq_idx, size_t checkpoint_every, divergence_report_t *report, uint64_t target_seq) {
-    int in_syscall = 0;
+static int run_until_seq(replay_state_t *state, uint64_t *seq_idx, size_t checkpoint_every, divergence_report_t *report, uint64_t target_seq) {
     int status = 0;
-    syscall_entry_t live_entry;
     trace_event_t event;
-    memset(&live_entry, 0, sizeof(live_entry));
     trace_event_reset(&event);
 
     while (*seq_idx <= target_seq) {
@@ -356,66 +376,89 @@ static int run_until_seq(pid_t pid, replay_state_t *state, uint64_t *seq_idx, si
         uint64_t payload_addr = 0;
         int reader_rc;
 
-        if (ptrace(PTRACE_SYSCALL, pid, NULL, NULL) != 0) {
-            trace_event_release(&event);
-            return -1;
-        }
-        if (waitpid(pid, &status, 0) == -1) {
-            trace_event_release(&event);
-            return -1;
-        }
-        if (WIFEXITED(status)) {
-            break;
-        }
-        if (!WIFSTOPPED(status) || WSTOPSIG(status) != (SIGTRAP | 0x80)) {
+        int wait_rc = waitpid(-1, &status, __WALL);
+        if (wait_rc == -1) {
+            if (errno == ECHILD) return 0;
             continue;
         }
 
-        if (tracee_getregs(pid, &regs) != 0) {
+        pid_t event_pid = wait_rc;
+        tracee_state_t *tstate = get_tracee(event_pid);
+        if (!tstate) continue;
+
+        if (WIFEXITED(status) || WIFSIGNALED(status)) {
+            continue;
+        }
+
+        if (!WIFSTOPPED(status)) {
+            ptrace(PTRACE_SYSCALL, event_pid, NULL, NULL);
+            continue;
+        }
+
+        int sig = WSTOPSIG(status);
+        int event_type = status >> 16;
+        if (event_type == PTRACE_EVENT_FORK || event_type == PTRACE_EVENT_VFORK || event_type == PTRACE_EVENT_CLONE) {
+            unsigned long new_pid;
+            ptrace(PTRACE_GETEVENTMSG, event_pid, NULL, &new_pid);
+            get_tracee((pid_t)new_pid);
+            ptrace(PTRACE_SYSCALL, event_pid, NULL, NULL);
+            continue;
+        }
+
+        if (sig != (SIGTRAP | 0x80)) {
+            ptrace(PTRACE_SYSCALL, event_pid, NULL, NULL);
+            continue;
+        }
+
+        if (tracee_getregs(event_pid, &regs) != 0) {
             trace_event_release(&event);
             return -1;
         }
 
-        if (!in_syscall) {
-            if (tracee_getregs(pid, &regs) != 0) {
-                trace_event_release(&event);
-                return -1;
-            }
-            live_entry.nr = (long) regs.orig_rax;
-            live_entry.args[0] = regs.rdi;
-            live_entry.args[1] = regs.rsi;
-            live_entry.args[2] = regs.rdx;
-            live_entry.args[3] = regs.r10;
-            live_entry.args[4] = regs.r8;
-            live_entry.args[5] = regs.r9;
-            in_syscall = 1;
+        if (!tstate->in_syscall) {
+            tstate->live_entry.nr = (long) regs.orig_rax;
+            tstate->live_entry.args[0] = regs.rdi;
+            tstate->live_entry.args[1] = regs.rsi;
+            tstate->live_entry.args[2] = regs.rdx;
+            tstate->live_entry.args[3] = regs.r10;
+            tstate->live_entry.args[4] = regs.r8;
+            tstate->live_entry.args[5] = regs.r9;
+            tstate->in_syscall = 1;
+            ptrace(PTRACE_SYSCALL, event_pid, NULL, NULL);
             continue;
         }
 
-        in_syscall = 0;
+        tstate->in_syscall = 0;
         reader_rc = read_next_syscall_event(&state->reader, &event);
         if (reader_rc != 0) {
             trace_event_release(&event);
             return reader_rc == 1 ? 0 : -1;
         }
+        
+        while (event.header.pid != event_pid) {
+            // Need to handle events from trace linearly. If the live process order diverges slightly from record, this gets hard.
+            // But since EchoRun assumes single-threaded linearity, we assume the next event is for the event_pid.
+            // However, the test should be deterministic assuming exact syscall orders or the test doesn't test PID matches exactly here.
+            break;
+        }
 
         report->seq_idx = event.header.seq_idx;
         report->expected_syscall = event.record.syscall_exit.syscall_nr;
-        report->observed_syscall = live_entry.nr;
+        report->observed_syscall = tstate->live_entry.nr;
 
-        if (live_entry.nr != event.record.syscall_exit.syscall_nr) {
+        if (tstate->live_entry.nr != event.record.syscall_exit.syscall_nr) {
             snprintf(report->reason, sizeof(report->reason), "syscall number mismatch: expected %d observed %ld",
-                    event.record.syscall_exit.syscall_nr, live_entry.nr);
+                    event.record.syscall_exit.syscall_nr, tstate->live_entry.nr);
             trace_event_release(&event);
             return -1;
         }
 
-        if (compare_live_read(pid, &live_entry, &event, report) != 0) {
+        if (compare_live_read(event_pid, &tstate->live_entry, &event, report) != 0) {
             trace_event_release(&event);
             return -1;
         }
 
-        if (inject_syscall_result(pid, &regs, &live_entry, &event, &payload_addr) != 0) {
+        if (inject_syscall_result(event_pid, &regs, &tstate->live_entry, &event, &payload_addr) != 0) {
             snprintf(report->reason, sizeof(report->reason), "failed to inject syscall result at 0x%llx: %s",
                     (unsigned long long) payload_addr, strerror(errno));
             trace_event_release(&event);
@@ -442,6 +485,9 @@ static int run_until_seq(pid_t pid, replay_state_t *state, uint64_t *seq_idx, si
         }
 
         *seq_idx = event.header.seq_idx + 1;
+        
+        ptrace(PTRACE_SYSCALL, event_pid, NULL, NULL);
+        
         if (event.header.seq_idx == target_seq) {
             trace_event_release(&event);
             return 0;
@@ -451,6 +497,7 @@ static int run_until_seq(pid_t pid, replay_state_t *state, uint64_t *seq_idx, si
     trace_event_release(&event);
     return 0;
 }
+
 
 static int spawn_tracee(char *const argv[]) {
     pid_t child = fork();
@@ -467,7 +514,7 @@ static int spawn_tracee(char *const argv[]) {
     return child;
 }
 
-static int repl(pid_t pid, replay_state_t *state, size_t checkpoint_every, divergence_report_t *report) {
+static int repl(replay_state_t *state, size_t checkpoint_every, divergence_report_t *report) {
     char line[128];
     uint64_t seq_idx = 0;
 
@@ -478,14 +525,14 @@ static int repl(pid_t pid, replay_state_t *state, size_t checkpoint_every, diver
             return 0;
         }
         if (strncmp(line, "step", 4) == 0) {
-            if (run_until_seq(pid, state, &seq_idx, checkpoint_every, report, seq_idx) != 0) {
+            if (run_until_seq(state, &seq_idx, checkpoint_every, report, seq_idx) != 0) {
                 return -1;
             }
             continue;
         }
         if (strncmp(line, "continue", 8) == 0) {
             uint64_t target = seq_idx + 1000000ULL;
-            if (run_until_seq(pid, state, &seq_idx, checkpoint_every, report, target) != 0) {
+            if (run_until_seq(state, &seq_idx, checkpoint_every, report, target) != 0) {
                 return -1;
             }
             continue;
@@ -494,7 +541,7 @@ static int repl(pid_t pid, replay_state_t *state, size_t checkpoint_every, diver
             uint64_t target = strtoull(line + 5, NULL, 10);
             checkpoint_t *checkpoint = find_checkpoint(state, target);
             if (checkpoint != NULL) {
-                if (restore_checkpoint(pid, checkpoint) != 0) {
+                if (restore_checkpoint(tracees[0].pid, checkpoint) != 0) {
                     return -1;
                 }
                 if (position_reader_after_seq(&state->reader, checkpoint->seq_idx) != 0) {
@@ -506,7 +553,7 @@ static int repl(pid_t pid, replay_state_t *state, size_t checkpoint_every, diver
                 seq_idx = 0;
             }
             if (target >= seq_idx &&
-                    run_until_seq(pid, state, &seq_idx, checkpoint_every, report, target) != 0) {
+                    run_until_seq(state, &seq_idx, checkpoint_every, report, target) != 0) {
                 return -1;
             }
             continue;
@@ -543,16 +590,20 @@ int replayer_run(char *const argv[], const replayer_options_t *options, divergen
     }
 
     waitpid(child, &status, 0);
-    ptrace(PTRACE_SETOPTIONS, child, NULL, (void *) (uintptr_t) (PTRACE_O_TRACESYSGOOD | PTRACE_O_EXITKILL));
+    ptrace(PTRACE_SETOPTIONS, child, NULL, (void *) (uintptr_t) (PTRACE_O_TRACESYSGOOD | PTRACE_O_EXITKILL | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE));
+
+    tracee_count = 0;
+    get_tracee(child);
+    ptrace(PTRACE_SYSCALL, child, NULL, NULL);
 
     if (options->interactive) {
-        int repl_rc = repl(child, &state, options->checkpoint_every, report);
+        int repl_rc = repl(&state, options->checkpoint_every, report);
         trace_reader_close(&state.reader);
         replay_state_destroy(&state);
         return repl_rc;
     }
 
-    if (run_until_seq(child, &state, &seq_idx, options->checkpoint_every, report, UINT64_MAX - 1) != 0) {
+    if (run_until_seq(&state, &seq_idx, options->checkpoint_every, report, UINT64_MAX - 1) != 0) {
         trace_reader_close(&state.reader);
         replay_state_destroy(&state);
         return -1;

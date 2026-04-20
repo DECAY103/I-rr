@@ -1,172 +1,9 @@
-#define _GNU_SOURCE
+import re
 
-#include "echorun.h"
-#include "syscall_table.h"
-#include "trace_reader.h"
+with open('src/recorder.c', 'r') as f:
+    content = f.read()
 
-#ifdef __linux__
-#include <errno.h>
-#include <linux/limits.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/personality.h>
-#include <sys/ptrace.h>
-#include <sys/reg.h>
-#include <sys/syscall.h>
-#include <sys/types.h>
-#include <sys/user.h>
-#include <sys/wait.h>
-#include <sys/time.h>
-#include <time.h>
-#include <unistd.h>
-
-typedef struct flight_buffer {
-    trace_event_t *events;
-    size_t capacity;
-    size_t count;
-    size_t head;
-} flight_buffer_t;
-
-typedef struct syscall_entry {
-    long nr;
-    uint64_t args[6];
-} syscall_entry_t;
-
-typedef struct tracee_state {
-    pid_t pid;
-    int in_syscall;
-    syscall_entry_t entry;
-} tracee_state_t;
-
-#define MAX_TRACEES 256
-static tracee_state_t tracees[MAX_TRACEES];
-static size_t tracee_count = 0;
-
-static tracee_state_t *get_tracee(pid_t pid) {
-    for (size_t i = 0; i < tracee_count; i++) {
-        if (tracees[i].pid == pid) return &tracees[i];
-    }
-    if (tracee_count < MAX_TRACEES) {
-        tracees[tracee_count].pid = pid;
-        tracees[tracee_count].in_syscall = 0;
-        return &tracees[tracee_count++];
-    }
-    return NULL;
-}
-
-static int tracee_read_memory(pid_t pid, uint64_t addr, void *buf, size_t len) {
-    size_t copied = 0;
-    unsigned char *dst = (unsigned char *) buf;
-
-    while (copied < len) {
-        errno = 0;
-        long word = ptrace(PTRACE_PEEKDATA, pid, (void *) (uintptr_t) (addr + copied), NULL);
-        if (word == -1 && errno != 0) {
-            return -1;
-        }
-        size_t chunk = sizeof(word);
-        if (chunk > len - copied) {
-            chunk = len - copied;
-        }
-        memcpy(dst + copied, &word, chunk);
-        copied += chunk;
-    }
-    return 0;
-}
-
-static int syscall_payload_descriptor(long syscall_nr, const syscall_entry_t *entry, long retval, uint64_t *addr, uint32_t *size) {
-    switch (syscall_nr) {
-        case SYS_pipe:
-        case SYS_pipe2:
-            if (retval == 0) {
-                *addr = entry->args[0];
-                *size = sizeof(int) * 2;
-                return 1;
-            }
-            return 0;
-        case SYS_read:
-        case SYS_write:
-            if (retval <= 0) {
-                return 0;
-            }
-            *addr = entry->args[1];
-            *size = (uint32_t) retval;
-            return 1;
-        case SYS_getrandom:
-            if (retval <= 0) {
-                return 0;
-            }
-            *addr = entry->args[0];
-            *size = (uint32_t) retval;
-            return 1;
-        case SYS_clock_gettime:
-            *addr = entry->args[1];
-            *size = (uint32_t) sizeof(struct timespec);
-            return 1;
-        case SYS_gettimeofday:
-            *addr = entry->args[0];
-            *size = (uint32_t) sizeof(struct timeval);
-            return 1;
-        default:
-            return 0;
-    }
-}
-
-static void flight_buffer_init(flight_buffer_t *buffer, size_t capacity) {
-    memset(buffer, 0, sizeof(*buffer));
-    buffer->capacity = capacity;
-    if (capacity > 0) {
-        buffer->events = calloc(capacity, sizeof(trace_event_t));
-    }
-}
-
-static void flight_buffer_push(flight_buffer_t *buffer, const trace_event_t *event) {
-    if (buffer->capacity == 0 || buffer->events == NULL) {
-        return;
-    }
-
-    if (buffer->count < buffer->capacity) {
-        size_t slot = (buffer->head + buffer->count) % buffer->capacity;
-        trace_event_clone(&buffer->events[slot], event);
-        buffer->count++;
-        return;
-    }
-
-    trace_event_release(&buffer->events[buffer->head]);
-    trace_event_clone(&buffer->events[buffer->head], event);
-    buffer->head = (buffer->head + 1) % buffer->capacity;
-}
-
-static int flight_buffer_flush(trace_writer_t *writer, const flight_buffer_t *buffer) {
-    size_t i;
-    for (i = 0; i < buffer->count; ++i) {
-        size_t slot = (buffer->head + i) % buffer->capacity;
-        if (trace_writer_write_event(writer, &buffer->events[slot]) != 0) {
-            return -1;
-        }
-    }
-    return 0;
-}
-
-static void flight_buffer_destroy(flight_buffer_t *buffer) {
-    size_t i;
-    for (i = 0; i < buffer->capacity; ++i) {
-        trace_event_release(&buffer->events[i]);
-    }
-    free(buffer->events);
-}
-
-static int emit_event(trace_writer_t *writer, flight_buffer_t *flight, const trace_event_t *event, int flight_mode) {
-    if (flight_mode) {
-        flight_buffer_push(flight, event);
-        return 0;
-    }
-    return trace_writer_write_event(writer, event);
-}
-
-int recorder_run(char *const argv[], const recorder_options_t *options) {
+run_new = """int recorder_run(char *const argv[], const recorder_options_t *options) {
     pid_t child;
     int status = 0;
     uint64_t seq_idx = 0;
@@ -328,7 +165,7 @@ int recorder_run(char *const argv[], const recorder_options_t *options) {
         event.record.signal.header = event.header;
         event.record.signal.signal_no = sig;
         emit_event(&writer, &flight, &event, options->flight_mode);
-        ptrace(PTRACE_SYSCALL, event_pid, NULL, NULL);
+        ptrace(PTRACE_SYSCALL, event_pid, NULL, (void*)(uintptr_t)((sig == SIGSTOP) ? 0 : sig));
     }
 
     if (options->flight_mode) {
@@ -339,12 +176,9 @@ int recorder_run(char *const argv[], const recorder_options_t *options) {
     trace_writer_close(&writer);
     return 0;
 }
+"""
 
+content = re.sub(r'int recorder_run\(char \*const argv\[\], const recorder_options_t \*options\) \{.*return 0;\n\}', run_new, content, flags=re.DOTALL)
 
-#else
-int recorder_run(char *const argv[], const recorder_options_t *options) {
-    (void) argv;
-    (void) options;
-    return -1;
-}
-#endif
+with open('src/recorder.c', 'w') as f:
+    f.write(content)
