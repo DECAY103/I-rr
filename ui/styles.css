@@ -1,0 +1,35 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.82), transparent 28%),
+    radial-gradient(circle at 85% 15%, rgba(189, 178, 255, 0.28), transparent 24%),
+    linear-gradient(160deg, #edf2ee 0%, #e2e8e4 48%, #dce4df 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(26, 26, 26, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 26, 26, 0.035) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(circle at center, black 35%, transparent 85%);
+  opacity: 0.32;
+}
+
+::selection {
+  background: rgba(189, 178, 255, 0.55);
+  color: #1a1a1a;
+}

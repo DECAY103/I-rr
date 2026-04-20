@@ -1,0 +1,14 @@
+# Build output
+bin/
+
+# Test data & artifacts
+out/
+traces/
+
+# Editors & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
